@@ -1,0 +1,17 @@
+const KHOJ_URL=(localStorage.getItem('laxman_khoj_url')||'').replace(/\/$/,'');
+const $=s=>document.querySelector(s);
+const welcome=$('#welcome'),chat=$('#chat'),panel=$('#panel'),input=$('#input'),crumb=$('#crumb');
+const statusDot=$('#statusDot'),statusText=$('#statusText');
+function status(online){statusDot.style.background=online?'#45d483':'#777';statusText.textContent=online?'Khoj connected':'Khoj not connected'}
+status(Boolean(KHOJ_URL));
+function addMsg(text,type){const el=document.createElement('div');el.className='msg '+type;el.textContent=text;chat.appendChild(el);chat.hidden=false;welcome.hidden=true;panel.hidden=true;return el}
+async function ask(text){text=text.trim();if(!text)return;addMsg(text,'user');input.value='';if(!KHOJ_URL){addMsg('Khoj is not connected yet. Open Settings and enter your self-hosted Khoj URL. The frontend is ready, but no backend/API key is stored here.','ai');return}const thinking=addMsg('Thinking…','ai');try{const r=await fetch(`${KHOJ_URL}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:text})});if(!r.ok)throw new Error(`HTTP ${r.status}`);const data=await r.json();thinking.textContent=data.response||data.answer||data.message||JSON.stringify(data);status(true)}catch(e){thinking.textContent=`I could not reach the Khoj backend. Check the URL and CORS/auth configuration.\n\n${e.message}`;status(false)}}
+function show(view){document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));crumb.textContent=view[0].toUpperCase()+view.slice(1);if(view==='chat'){welcome.hidden=chat.childElementCount>0;chat.hidden=chat.childElementCount===0;panel.hidden=true;return}welcome.hidden=true;chat.hidden=true;panel.hidden=false;const copy={knowledge:['Knowledge','Connect the sources you want Khoj to search.','Recommended: GitHub repos, Markdown notes, PDFs, documents and your personal knowledge base.'],research:['Research','Use Khoj web research to investigate a topic and synthesize useful answers.','Your self-hosted backend will handle the actual research once connected.'],agents:['Agents','Build focused AI workflows for recurring tasks.','Keep secrets and API keys on the backend — never inside this static frontend.']}[view];panel.innerHTML=`<h2>${copy[0]}</h2><p>${copy[1]}</p><div class="box"><strong>Next step</strong><p>${copy[2]}</p></div>`}
+document.querySelectorAll('.nav-item[data-view]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.view)));
+document.querySelectorAll('.prompt-card').forEach(b=>b.addEventListener('click',()=>{show('chat');input.value=b.dataset.prompt;ask(input.value)}));
+$('#composer').addEventListener('submit',e=>{e.preventDefault();ask(input.value)});
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ask(input.value)}});
+$('#newChat').addEventListener('click',()=>{chat.innerHTML='';chat.hidden=true;welcome.hidden=false;input.focus();show('chat')});
+$('#menu').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
+function settings(){const current=KHOJ_URL||'not set';const url=prompt(`Khoj backend URL\nCurrent: ${current}\n\nExample: https://ai.example.com`,KHOJ_URL);if(url===null)return;localStorage.setItem('laxman_khoj_url',url.trim().replace(/\/$/,''));location.reload()}
+$('#settingsBtn').addEventListener('click',settings);$('#connectBtn').addEventListener('click',settings);
